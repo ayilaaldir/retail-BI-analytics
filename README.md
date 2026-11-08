@@ -4,7 +4,13 @@ Northstar is a portfolio-grade retail business intelligence and profitability pl
 
 The raw CSV archive, customer and transaction identifiers, local Parquet files, quality reports, and private development exports remain outside Git and deployment artifacts.
 
+**Live dashboard:** [retail-bi-analytics.pages.dev](https://retail-bi-analytics.pages.dev/)
+
 ![Northstar synthetic POS dashboard](docs/dashboard-overview.png)
+
+## Project objective
+
+Build an end-to-end analytics product that converts a large, imperfectly shaped POS export into trustworthy business metrics and a decision-ready dashboard. The project demonstrates practical data validation, SQL modeling, KPI governance, interactive analysis, privacy-aware publication, automated testing, and production deployment.
 
 ## Business questions
 
@@ -23,6 +29,17 @@ The raw CSV archive, customer and transaction identifiers, local Parquet files, 
 | Dashboard | React 19, TypeScript, Vite, Tailwind CSS 4, Recharts |
 | Quality | Pytest, Vitest, Testing Library, Oxlint, TypeScript |
 | Delivery | GitHub Actions, Cloudflare Pages |
+
+## Portfolio relevance
+
+- Translates business questions into governed KPI definitions rather than relying on ambiguous source labels.
+- Validates accounting identities, signs, types, dates, duplicates, and required fields before analysis.
+- Uses DuckDB and SQL to create reusable analytical views from a Parquet layer.
+- Delivers filter-aware KPIs and visual diagnostics for management-style exploration.
+- Applies minimum-cohort and complementary-suppression controls before browser publication.
+- Automates Python, frontend, lint, and production-boundary checks in CI.
+
+See the [job-application project description](docs/portfolio-project-description.md) for concise résumé and interview-ready versions.
 
 ## Architecture
 
@@ -131,14 +148,16 @@ The command verifies `data/source_manifest.json` before writing `frontend/public
 
 | Setting | Value |
 | --- | --- |
+| Live URL | [retail-bi-analytics.pages.dev](https://retail-bi-analytics.pages.dev/) |
+| Cloudflare project | `retail-bi-analytics` |
 | Framework preset | React (Vite) |
-| Production branch | `main` after migration approval |
+| Production branch | `main` |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Node.js | 22 or newer |
 
-`frontend/wrangler.toml` matches the Pages root configuration. Cloudflare production-branch selection remains a dashboard setting and must not be changed until the migration is approved.
+`frontend/wrangler.toml` matches the Pages root configuration. Cloudflare Pages automatically deploys reviewed commits from `main`; the live release has been checked against the committed aggregate asset and production bundle.
 
 ## Repository guide
 
