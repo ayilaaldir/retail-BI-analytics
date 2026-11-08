@@ -11,14 +11,23 @@ __pycache__/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+kaggle.json
+*.pem
+*.key
+.wrangler/
 
 # Node.js and frontend build files
 node_modules/
 frontend/dist/
+/package-lock.json
 
 # Local data (review licensing before publishing)
 data/raw/
 data/processed/
+data/reports/
+data/local/
 frontend/public/data/
 
 # Editor and operating system files

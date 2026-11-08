@@ -1,0 +1,21 @@
+{
+  "dataset_name": "Replace with the exact dataset title",
+  "source_url": "https://www.kaggle.com/datasets/owner/dataset-slug",
+  "source_owner": "Dataset publisher or uploader",
+  "attribution": "Required attribution text, distinguishing uploader from original creator",
+  "source_file": "data/raw/example.csv",
+  "source_file_sha256": "SHA-256 digest of the exact local source file",
+  "observation_period": {
+    "start": "YYYY-MM-DD",
+    "end": "YYYY-MM-DD"
+  },
+  "license_name": "Exact license label displayed by the source",
+  "license_url": "https://authoritative-license-or-source-evidence-url",
+  "license_verified": false,
+  "redistribution_status": "not_established",
+  "redistribution_permission_url": "",
+  "verified_at": "YYYY-MM-DD",
+  "verified_by": "Your name or GitHub handle",
+  "evidence": [],
+  "notes": "Set redistribution_status to permitted only when an authoritative grant covers the intended public browser export."
+}

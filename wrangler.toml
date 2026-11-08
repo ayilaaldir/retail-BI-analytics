@@ -1,0 +1,4 @@
+# Direct-upload configuration for commands run from the repository root.
+name = "retail-bi-dashboard"
+pages_build_output_dir = "./frontend/dist"
+compatibility_date = "2026-11-08"

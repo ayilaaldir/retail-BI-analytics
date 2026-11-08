@@ -1,0 +1,4 @@
+# Cloudflare Pages configuration when `frontend` is the project root.
+name = "retail-bi-dashboard"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-11-08"

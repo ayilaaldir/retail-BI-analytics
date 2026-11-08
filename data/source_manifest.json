@@ -1,0 +1,38 @@
+{
+  "dataset_name": "Superstore Dataset",
+  "source_url": "https://www.kaggle.com/datasets/vivek468/superstore-dataset-final",
+  "source_owner": "Vivek Chowdhury (Kaggle uploader; not represented as the original data owner)",
+  "attribution": "Dataset downloaded from the Kaggle listing published by Vivek Chowdhury. The uploader credits the original authors/creators and identifies a Tableau community post as the source.",
+  "original_source_url": "https://trailhead.salesforce.com/trailblazer-community/feed/0D5KX00000kQPXv0AO",
+  "source_file": "data/raw/Sample - Superstore.csv",
+  "source_file_sha256": "58fb59c63089e564d835e4aabe19d371757de1137a5bf1888243ae386c4b7a97",
+  "observation_period": {
+    "start": "2014-01-03",
+    "end": "2017-12-30"
+  },
+  "license_name": "Other (specified in description)",
+  "license_url": "https://www.kaggle.com/datasets/vivek468/superstore-dataset-final",
+  "license_verified": false,
+  "redistribution_status": "not_established",
+  "redistribution_permission_url": "",
+  "verified_at": "2026-11-08",
+  "verified_by": "Codex evidence review; owner confirmation still required",
+  "evidence": [
+    {
+      "source": "Kaggle public dataset API",
+      "url": "https://www.kaggle.com/api/v1/datasets/view/vivek468/superstore-dataset-final",
+      "finding": "The dataset license label is 'Other (specified in description)'."
+    },
+    {
+      "source": "Kaggle dataset description",
+      "url": "https://www.kaggle.com/datasets/vivek468/superstore-dataset-final",
+      "finding": "The uploader states that they do not own the data, credits the original creators, links a Tableau community post, and says it is for educational purposes only. No explicit redistribution grant is stated."
+    },
+    {
+      "source": "Linked Tableau/Salesforce community post",
+      "url": "https://trailhead.salesforce.com/trailblazer-community/feed/0D5KX00000kQPXv0AO",
+      "finding": "The post identifies the file as Tableau sample data and offers a download, but the post itself does not state a data redistribution license."
+    }
+  ],
+  "notes": "Public availability and educational-use wording do not establish permission to redistribute the row-level browser dataset. Keep the publication gate closed unless the original rights holder or an authoritative license expressly permits the intended public distribution."
+}
