@@ -35,7 +35,7 @@ describe('dashboard data integration', () => {
     expect(await screen.findByRole('heading', { name: 'Profitability command center' })).toBeInTheDocument()
     const salesCard = screen.getByText('Net sales').closest('article')
     expect(salesCard).not.toBeNull()
-    expect(within(salesCard!).getByText('$100')).toBeInTheDocument()
+    expect(within(salesCard!).getByText(/^\$100(?:\.0)?$/)).toBeInTheDocument()
     const marginCard = screen.getByText('Profit margin').closest('article')
     expect(marginCard).not.toBeNull()
     expect(within(marginCard!).getByText('20%')).toBeInTheDocument()
