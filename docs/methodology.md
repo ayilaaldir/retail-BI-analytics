@@ -2,46 +2,43 @@
 
 ## Input contract
 
-The loader accepts conventional Superstore CSV headings and normalizes them to snake case. Required fields cover order identifiers and dates, customer/market dimensions, product hierarchy, and the core measures: sales, quantity, discount, and profit.
+The POS loader reads the published gzip-compressed CSV directly and normalizes headings to snake case. Required fields cover date/time, category and item descriptors, signed quantity and financial measures, transaction/payment/store dimensions, event type, unit cost, and gross profit. `Customer ID` is optional and is never exported.
 
 ## Validation rules
 
-The pipeline fails before modeling when:
+The pipeline rejects data when:
 
 - a required column or value is missing;
-- a date or numeric value cannot be parsed;
-- `Row ID` is duplicated;
-- ship date precedes order date;
-- sales is negative or quantity is not positive; or
-- discount falls outside 0–1.
+- date or numeric parsing fails;
+- event type is not `Payment` or `Refund`;
+- a payment has non-positive quantity or a refund has non-negative quantity;
+- price or cost is negative;
+- a discount is positive rather than zero or negative; or
+- any line violates the documented gross-sales, net-sales, collected-total, or gross-profit identity beyond one cent.
 
-Potentially duplicated order lines are warnings because identical product lines can be legitimate. The generated quality report also records date coverage, row count, duplicate counts, loss-making line count, sales, and profit. Those totals are diagnostic output from the supplied data, not hard-coded claims.
+Exact duplicate rows are reported. Repeated Transaction IDs are expected because a transaction can contain multiple item lines.
+
+## KPI definitions
+
+- Net sales = sum of signed `Net Sales`, including refunds.
+- Gross profit = sum of `Gross Profit`.
+- Gross margin = Gross Profit / Net Sales.
+- Transactions = distinct `Transaction ID`.
+- Average ticket = Net Sales / distinct transactions.
+- Discount depth = absolute discount amount / Gross Sales for payment lines.
+
+Refund rows remain in all net KPIs, trends, category results, and store results. The discount diagnostic uses payment lines only because a signed refund is not a discount event.
 
 ## SQL model
 
-`sql/analysis.sql` creates reusable DuckDB views:
+`sql/pos_analysis.sql` defines KPI summary, monthly performance, category performance, location performance, discount effectiveness, and refund summary views. DuckDB executes these definitions during every export build so schema drift fails before browser data is written.
 
-- `kpi_summary`: sales, profit, margin, distinct orders, and AOV;
-- `monthly_performance`: trend series;
-- `category_performance` and `state_performance`: commercial mix and geographic performance;
-- `discount_effectiveness`: margin by discount band; and
-- `loss_drivers`: loss-making category, subcategory, and region combinations.
+## Browser aggregates
 
-Ratios use `NULLIF` to avoid division-by-zero errors. Monetary aggregates are rounded to two decimal places; source rows remain unrounded.
+The exporter builds views for the actual source dimensions: year, store location, payment method, and category. It permits any three simultaneously, requires at least 10 distinct transactions per view and child series, and applies complementary suppression when one small child could be recovered by subtraction.
 
-## Dashboard behavior
+The JSON contains no transaction/customer/product identifiers or line-level data. The React client selects the exact aggregate view rather than recalculating from source rows.
 
-The pipeline exports validated row-level measures and pre-aggregated views as JSON. Filters are applied in the browser, so revenue, profit, margin, orders, average order value, monthly trends, category performance, regional profitability, and discount-band analysis recompute from the active subset. The export omits customer names, product names, addresses, and other fields unnecessary for the dashboard.
+## Synthetic-data limitations
 
-## License and publication gate
-
-Kaggle hosts datasets supplied by many publishers, so “from Kaggle” is not itself a license. Before including data-derived output in a public deployment, record the exact dataset URL, displayed license, authoritative license URL, verification date, and reviewer in `data/source_manifest.json`.
-
-The codebase cannot determine whether a manifest accurately describes a future grant of rights. Human verification against an authoritative license or written permission remains required. `--publish-export` requires an explicit verification flag, a `permitted` redistribution status, and an authoritative permission URL; it cannot replace legal review. The evidence and current closed-gate decision are recorded in [data-provenance.md](data-provenance.md).
-
-## Known limitations
-
-- Profit is taken directly from the dataset and is not recomputed from cost data.
-- Returns are not modeled unless the chosen dataset contains and documents them.
-- Currency is displayed as USD, matching the common US Superstore dataset; verify this against the exact source.
-- The static browser export is suitable for a portfolio dataset but not sensitive or high-volume production data.
+The values are deterministic outcomes of a seeded simulation, not empirical business performance. The modeled event calendar, traffic tiers, category skews, discounts, refunds, flat tax rate, static catalog, and cost ratios shape every analytical result. The dashboard is therefore suitable for engineering and analytical demonstration, not real-company benchmarking or causal inference.

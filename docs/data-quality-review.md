@@ -1,20 +1,33 @@
 # Data quality review
 
-Reviewed on 2026-11-08 against `data/raw/Sample - Superstore.csv`.
+Reviewed on 2026-11-08 against the Mendeley Data Version 1 detail archive.
 
-## Validation outcome
+## Validated profile
 
-- Rows: 9,994
-- Columns: 21
-- Observation period: 2014-01-03 through 2017-12-30
-- Duplicate `Row ID` values: 0
-- Fatal validation errors: 0
-- Potential duplicate order lines: 1
+- Rows: 970,838
+- Columns: 22
+- Observation period: 2024-01-01 through 2025-12-31
+- Payment rows: 961,389
+- Refund rows: 9,449
+- Distinct transactions: 585,691
+- Stores: 30
+- Categories: 6
+- Exact duplicate rows: 0
+- Accounting-identity failures: 0
 
-## Potential duplicate line
+`Customer ID` is absent on 634,393 rows by design; it is an optional attribution field rather than a required measure. The 336,445 populated customer-identifier rows are retained only in the ignored analytical layer and excluded from browser data.
 
-Rows **3406** and **3407** are identical in every source field except `Row ID`. Both describe order `US-2014-150119`, product `FUR-CH-10002965`, quantity 2, sales 281.372, discount 0.3, and profit -12.0588.
+## Financial checks
 
-This is strong evidence of a duplicate transaction line, but the source supplies unique row identifiers and no order-line key, correction notice, or authoritative deduplication rule. Automatically removing the second row would alter published source data and every dependent KPI.
+Every row satisfies, within one cent:
 
-Decision: **preserve both rows** and retain the warning. If the original data owner supplies a correction or confirms that identical order/product lines are accidental duplicates, implement that rule as a documented transformation and update the affected KPI baseline.
+- Gross Sales = Unit Price x Qty
+- Net Sales = Gross Sales + Discounts
+- Total Collected = Net Sales + Tax
+- Gross Profit = Net Sales - Unit Cost x Qty
+
+Payment quantities are positive, refund quantities are negative, and discount amounts are zero or negative as documented.
+
+## Comparison with publisher validation
+
+The observed row count, payment/refund counts, date range, and source-file SHA-256 agree with the Mendeley record and accompanying validation report. The pipeline independently recomputes business totals rather than importing the publisher's summary values.

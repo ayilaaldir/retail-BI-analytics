@@ -1,19 +1,18 @@
 # Northstar Retail BI
 
-Northstar is a portfolio-grade retail business intelligence and profitability analytics platform. It validates a Superstore transaction dataset with Pandas, models reusable business views in DuckDB SQL, and presents filter-aware KPIs and diagnostics in a responsive React dashboard.
+Northstar is a portfolio-grade retail business intelligence and profitability platform built around a fully synthetic, openly licensed multi-store point-of-sale dataset. It validates 970,838 POS line items with Pandas, models business views with DuckDB and SQL, and serves disclosure-controlled aggregates to a responsive React dashboard.
 
-The repository publishes the application, analytics code, tests, and methodology—not the source dataset or generated browser data. The current dataset's redistribution permission has not been established, so public data export remains disabled by design.
+The raw CSV archive, customer and transaction identifiers, local Parquet files, quality reports, and private development exports remain outside Git and deployment artifacts.
 
-![Northstar dashboard overview](docs/dashboard-overview.png)
+![Northstar synthetic POS dashboard](docs/dashboard-overview.png)
 
-> Screenshot from the private local-data preview. Its generated JSON is Git-ignored and cannot enter a production build.
+## Business questions
 
-## What the dashboard answers
-
-- How are revenue, profit, margin, order volume, and average order value changing?
-- Which categories and regions contribute the most profit?
-- Where do discounts stop supporting profitable growth?
-- How do year, region, segment, and category selections change every applicable KPI and visualization?
+- How are net sales, gross profit, margin, transaction volume, and average ticket changing?
+- Which categories and stores contribute the most gross profit?
+- How do payment method, store, category, and year selections change performance?
+- How does discount depth affect payment-line margin?
+- What impact do signed refunds have on net performance?
 
 ## Technology
 
@@ -29,86 +28,86 @@ The repository publishes the application, analytics code, tests, and methodology
 
 ```mermaid
 flowchart LR
-    A[Raw CSV\nlocal + ignored] --> B[Pandas validation]
+    A[Mendeley CSV.gz\nlocal + ignored] --> B[Pandas POS validation]
     B -->|quality report| C[Reports\nlocal + ignored]
     B --> D[Parquet analytical layer\nlocal + ignored]
-    D --> E[DuckDB SQL views]
-    E --> F{Export mode}
-    F -->|--local-export| G[data/local/dashboard.json\nVite dev only + ignored]
-    F -->|--publish-export| H[License and redistribution gate]
-    H -->|permission verified| I[Public browser export]
-    H -->|current state| J[Fail closed]
-    G --> K[React dashboard]
-    I --> K
+    D --> E[DuckDB POS views]
+    E --> F[Disclosure-controlled aggregate cube]
+    F --> G[data/local/dashboard.json\nVite dev only]
+    F --> H[CC BY 4.0 publication gate]
+    H --> I[frontend/public/data/dashboard.json]
+    G --> J[React dashboard]
+    I --> J
 ```
 
-The Vite development server exposes the local export through `/__local/dashboard.json`. That middleware is registered only for `vite serve`. Production builds read only `/data/dashboard.json`, and a post-build safety check fails if the local path or endpoint appears in `dist`.
+Production code reads `/data/dashboard.json`. The Vite development-only `/__local/dashboard.json` middleware never enters `dist`, and the post-build audit rejects local paths, direct identifiers, unexpected fields, small aggregates, and over-granular views.
 
 ## Validated analytical findings
 
-The local pipeline validated 9,994 rows covering 2014-01-03 through 2017-12-30.
+The source covers 2024-01-01 through 2025-12-31 across 30 synthetic stores, six product categories, and 585,691 transactions.
 
 | KPI | Result |
 | --- | ---: |
-| Revenue | $2,297,200.86 |
-| Profit | $286,397.02 |
-| Profit margin | 12.47% |
-| Distinct orders | 5,009 |
-| Average order value | $458.61 |
+| Net sales | $46,595,173.27 |
+| Gross profit | $25,784,056.34 |
+| Gross margin | 55.34% |
+| Distinct transactions | 585,691 |
+| Average ticket | $79.56 |
+| Net refund sales | -$396,495.00 |
 
-Selected diagnostic findings:
+Selected descriptive findings:
 
-- Technology generated $145,454.95 profit at approximately 17.4% margin.
-- Office Supplies generated $122,490.80 profit at approximately 17.0% margin.
-- Furniture produced only $18,451.27 profit at approximately 2.5% margin.
-- Orders without a discount produced approximately 29.5% margin.
-- Discounts of 21–40% produced a -15.3% margin; discounts above 40% produced a -77.4% margin.
-- West was the largest regional profit contributor at $108,418.45.
+- 2025 net sales were approximately 5.49% above 2024.
+- Apparel contributed $10.26M gross profit at 57.31% margin.
+- Beauty had the highest category margin at approximately 68.22%.
+- Payment lines with no discount produced approximately 57.77% margin; payment lines above 20% discount produced approximately 40.10%.
+- Store 09 - Chicago was the largest gross-profit contributor at approximately $1.59M.
 
-These values are descriptive results from the specified dataset, not claims about a real operating company. See [methodology](docs/methodology.md) and [data quality review](docs/data-quality-review.md).
+These are deterministic results from a seeded synthetic simulation, not claims about a real company or customers.
 
-## Analytical methodology
+## KPI definitions
 
-1. Normalize conventional Superstore headers to stable snake-case fields.
-2. Validate required columns, nulls, identifiers, dates, numeric types, shipping chronology, quantity, sales, and discount bounds.
-3. Preserve the validated source rows in a local Parquet analytical layer.
-4. Create DuckDB views for KPI summary, monthly performance, category and state performance, discount effectiveness, and loss drivers.
-5. Export only the dimensions and measures required by the dashboard.
-6. Recalculate KPIs, monthly trends, category performance, regional profit, and discount bands in the browser for the active filter context.
+- **Net sales:** source `Net Sales`, including signed refunds and discounts.
+- **Gross profit:** source `Gross Profit` = Net Sales - Unit Cost x Qty.
+- **Gross margin:** Gross Profit / Net Sales.
+- **Transactions:** distinct `Transaction ID`, including separately identified refund transactions.
+- **Average ticket:** Net Sales / distinct transactions.
+- **Discount bands:** effective payment-line discount amount divided by gross sales; refund rows are excluded from this diagnostic but remain included in net KPIs.
 
-The quality review identified one possible duplicate: rows 3406 and 3407 are identical except for their unique `Row ID`. Both remain preserved because no authoritative correction or documented order-line key establishes that one should be removed.
+Filters use the actual source dimensions: year, store location, payment method, and category. No region, customer segment, shipping field, or order status is synthesized.
+
+## Data quality and privacy
+
+The pipeline validates required fields, dates, numeric types, payment/refund signs, discount signs, duplicate rows, and four line-level accounting identities. The current source has zero exact duplicate rows and zero accounting-identity failures.
+
+The browser export contains only KPI, monthly, category, store, and discount-band aggregates. It excludes Customer ID, Transaction ID, Item, SKU, Price Point Name, Device Name, time-of-day, and all line-level records. It allows at most three simultaneous filters, requires at least 10 transactions per published aggregate, and uses complementary suppression for a single small child cell.
+
+## Dataset attribution and license
+
+Source: [A Synthetic Multi-Store Retail Point-of-Sale Transaction Dataset in Square POS Export Format](https://data.mendeley.com/datasets/39xdjxgnmf/1), MD Owes Quruny Shubho, Mendeley Data, Version 1, DOI [10.17632/39xdjxgnmf.1](https://doi.org/10.17632/39xdjxgnmf.1).
+
+Licensed under [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/). Northstar adapts the source into validated Parquet data, SQL analytical views, and aggregate browser JSON. The source is fully synthetic and is not affiliated with or endorsed by Square or Block, Inc.
+
+See [dataset provenance](docs/data-provenance.md), [methodology](docs/methodology.md), and [data quality review](docs/data-quality-review.md).
 
 ## Run locally
 
-### Requirements
+Requirements:
 
 - Python 3.13
 - Node.js 22+
-- The source CSV at `data/raw/Sample - Superstore.csv`
-
-### Install and validate
+- `data/raw/mendeley_pos/01_square_item_sales_detail_24mo.csv.gz`
 
 ```powershell
-py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m retail_bi.pos_pipeline --local-export
+
 cd frontend
 npm ci
-cd ..
-.\.venv\Scripts\python.exe -m pytest
-```
-
-### Generate the private preview
-
-```powershell
-.\.venv\Scripts\python.exe -m retail_bi.pipeline `
-  --source "data/raw/Sample - Superstore.csv" `
-  --local-export
-
-cd frontend
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173/>. The generated `data/local/dashboard.json` stays outside `frontend/public` and is ignored by Git.
+Open <http://127.0.0.1:5173/>. The raw, processed, report, and local export files are Git-ignored.
 
 ## Tests and release checks
 
@@ -120,60 +119,50 @@ npm test
 npm run build
 ```
 
-`npm run build` performs TypeScript compilation, creates the optimized Vite bundle, and verifies that neither `data/local/dashboard.json` nor `/__local/dashboard.json` leaked into the output.
+To create the proposed licensed production asset for review:
 
-GitHub Actions repeats the Python and frontend checks on pull requests and pushes to `main`.
+```powershell
+.\.venv\Scripts\python.exe -m retail_bi.pos_pipeline --publish-export
+```
+
+The command verifies `data/source_manifest.json` before writing `frontend/public/data/dashboard.json`. No push or deployment should occur until the generated asset and production build have been reviewed.
 
 ## Cloudflare Pages
-
-Use the following Git integration settings:
 
 | Setting | Value |
 | --- | --- |
 | Framework preset | React (Vite) |
+| Production branch | `main` after migration approval |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Node.js | 22 or newer |
 
-[`frontend/wrangler.toml`](frontend/wrangler.toml) uses `pages_build_output_dir = "./dist"`, matching the configured Pages root. The root [`wrangler.toml`](wrangler.toml) is retained for direct-upload commands run from the repository root.
-
-The current production build intentionally contains no dataset-derived browser JSON and will show the transparent data-unavailable state. A data-backed public deployment remains blocked until redistribution permission is established.
-
-## Data provenance and licensing
-
-The dataset was downloaded from the [Kaggle Superstore listing](https://www.kaggle.com/datasets/vivek468/superstore-dataset-final). Kaggle labels it “Other (specified in description),” and the uploader does not provide an explicit redistribution grant. Public availability is not treated as permission.
-
-The publication pipeline requires all of the following before creating a public browser export:
-
-- `license_verified: true`;
-- `redistribution_status: permitted`; and
-- an authoritative HTTPS permission URL.
-
-The committed manifest deliberately remains closed. See the full [provenance decision](docs/data-provenance.md). Do not commit anything under `data/raw`, `data/processed`, `data/reports`, `data/local`, or `frontend/public/data`.
-
-## Known limitations
-
-- Profit is accepted from the source and cannot be independently reconstructed without cost data.
-- Returns are not modeled unless a future licensed source documents them.
-- Currency is displayed as USD based on the dataset context.
-- The duplicate candidate is retained, so affected totals reflect both source rows.
-- Browser-side filtering is appropriate for this portfolio-scale dataset, not sensitive or high-volume production data.
-- Public deployment is currently code-only because dataset redistribution permission is unresolved.
+`frontend/wrangler.toml` matches the Pages root configuration. Cloudflare production-branch selection remains a dashboard setting and must not be changed until the migration is approved.
 
 ## Repository guide
 
 ```text
-retail_bi/                 Python validation, licensing, pipeline, and export logic
-sql/analysis.sql           DuckDB business views
-tests/                     Python tests
-frontend/src/              React dashboard and frontend tests
-frontend/scripts/          Production-boundary release check
-.github/workflows/ci.yml   Continuous integration
-docs/                      Architecture, methodology, provenance, and quality notes
-data/source_manifest.json  Closed publication decision; no dataset content
+retail_bi/pos_*.py             Synthetic POS validation, modeling, and pipeline
+sql/pos_analysis.sql           POS business views
+tests/test_pos_*.py            POS validation and analytical tests
+retail_bi/{schema,validation,analytics,pipeline}.py
+                               Preserved legacy implementation
+frontend/src/                  React dashboard and tests
+frontend/scripts/              Production boundary and privacy audit
+docs/                          Architecture, methodology, provenance, and quality
+data/source_manifest.json      Versioned source, checksum, attribution, and CC BY evidence
 ```
+
+## Known limitations
+
+- The source is synthetic and intentionally reflects its seeded generation assumptions.
+- Refunds are separate negative transactions rather than links to original baskets.
+- A flat 8.25% tax and simplified CST label are applied to all stores.
+- Customer identifiers are nominal and excluded from all browser exports.
+- The catalog and prices are static across the two-year period.
+- The dashboard is descriptive; it does not infer causality or represent a real operating business.
 
 ## Code license
 
-No software license has been selected yet. Until the repository owner adds one, the source code remains under default copyright terms. The dataset is governed separately and is not included in this repository.
+No software license has been selected yet. Until one is added, the source code remains under default copyright terms. The dataset is licensed separately under CC BY 4.0.

@@ -8,29 +8,34 @@ export type KpiSet = {
 
 export type TrendPoint = { month: string; sales: number; profit: number; margin: number }
 export type BreakdownPoint = { name: string; sales: number; profit: number; margin: number }
-export type StatePoint = { state: string; sales: number; profit: number; margin: number }
+
+export type DashboardView = {
+  kpis: KpiSet
+  trend: TrendPoint[]
+  categories: BreakdownPoint[]
+  locations: BreakdownPoint[]
+  discounts: BreakdownPoint[]
+}
 
 export type DashboardData = {
   status: 'ready'
   generatedAt: string
-  source: { name: string; rows: number; minDate: string; maxDate: string }
-  filters: { regions: string[]; segments: string[]; categories: string[]; years: number[] }
-  rows: Array<{
-    orderDate: string
-    region: string
-    segment: string
-    category: string
-    discount: number
-    sales: number
-    profit: number
-    orderId: string
-  }>
-  trend: TrendPoint[]
-  categories: BreakdownPoint[]
-  states: StatePoint[]
-  regions: BreakdownPoint[]
-  discounts: BreakdownPoint[]
-  kpis: KpiSet
+  source: {
+    name: string
+    creator: string
+    rows: number
+    minDate: string
+    maxDate: string
+    attributionUrl: string
+    licenseName: string
+    licenseUrl: string
+    doi: string
+    synthetic: true
+    usageCondition: string
+  }
+  filters: { locations: string[]; paymentMethods: string[]; categories: string[]; years: number[] }
+  privacy: { maxActiveFilters: number; minimumTransactionsPerAggregate: number; complementarySuppression: boolean }
+  views: Record<string, DashboardView>
 }
 
 export type DataUnavailable = {

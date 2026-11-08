@@ -16,7 +16,7 @@ No environment was deleted or recreated. The project requirements were installed
 ```powershell
 .\.venv\Scripts\python.exe --version
 .\.venv\Scripts\python.exe -m pytest
-.\.venv\Scripts\python.exe -m retail_bi.pipeline --source "data/raw/Sample - Superstore.csv"
+.\.venv\Scripts\python.exe -m retail_bi.pos_pipeline
 ```
 
 Avoid relying on the bare `python` command in this machine configuration: the current PATH resolves it to a separate Python 3.11 installation.
