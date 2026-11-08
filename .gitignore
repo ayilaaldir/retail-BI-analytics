@@ -1,0 +1,27 @@
+# Python virtual environment
+.venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Node.js and frontend build files
+node_modules/
+frontend/dist/
+
+# Local data (review licensing before publishing)
+data/raw/
+data/processed/
+frontend/public/data/
+
+# Editor and operating system files
+.vscode/
+.DS_Store
+Thumbs.db
