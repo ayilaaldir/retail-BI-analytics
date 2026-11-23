@@ -2,9 +2,11 @@
 
 Northstar is a portfolio-grade retail business intelligence and profitability platform built around a fully synthetic, openly licensed multi-store point-of-sale dataset. It validates 970,838 POS line items with Pandas, models business views with DuckDB and SQL, and serves disclosure-controlled aggregates to a responsive React dashboard.
 
-The raw CSV archive, customer and transaction identifiers, local Parquet files, quality reports, and private development exports remain outside Git and deployment artifacts.
+**Northstar Retail Inventory Intelligence**, by Ridla A. Gani, extends the sales overview with reconciled inventory balances, turnover and coverage, FIFO aging, and a replenishment watchlist. It is an independent fictional retail case study that uses the same source stores, dates, and SKUs as the sales analysis.
 
-**Live dashboard:** [retail-bi-analytics.pages.dev](https://retail-bi-analytics.pages.dev/)
+The sales overview is available publicly. [Live sales dashboard](https://retail-bi-analytics.pages.dev/)
+
+The raw CSV archive, customer and transaction identifiers, local Parquet files, quality reports, and private development exports remain outside Git and deployment artifacts.
 
 ![Northstar synthetic POS dashboard](docs/dashboard-overview.png)
 
@@ -19,6 +21,8 @@ Build an end-to-end analytics product that converts a large, imperfectly shaped 
 - How do payment method, store, category, and year selections change performance?
 - How does discount depth affect payment-line margin?
 - What impact do signed refunds have on net performance?
+- Where are stock and cost concentrated, which stocked products move slowly, and which store–SKU pairs need replenishment review?
+- How much stock is aging, and do inventory quantities reconcile to recorded payments and refunds?
 
 ## Technology
 
@@ -59,6 +63,8 @@ flowchart LR
 
 Production code reads `/data/dashboard.json`. The Vite development-only `/__local/dashboard.json` middleware never enters `dist`, and the post-build audit rejects local paths, direct identifiers, unexpected fields, small aggregates, and over-granular views.
 
+The inventory pipeline reuses POS validation and maps paid and refunded quantities into a signed store–SKU ledger. Seeded receipts, opening lots, and adjustments bridge the inventory records absent from the source. DuckDB independently reconciles daily balances and prepares month-level metrics. React fetches the compact inventory dataset on demand and applies month, store, category, health, and SKU filters to the same inventory cohort. The static inventory asset uses demo catalog aliases and excludes transaction-level records.
+
 ## Validated analytical findings
 
 The source covers 2024-01-01 through 2025-12-31 across 30 synthetic stores, six product categories, and 585,691 transactions.
@@ -93,11 +99,15 @@ These are deterministic results from a seeded synthetic simulation, not claims a
 
 Filters use the actual source dimensions: year, store location, payment method, and category. No region, customer segment, shipping field, or order status is synthesized.
 
+Inventory uses the last selected snapshot for ending stock and fixed POS SKU cost for valuation. Turnover is net COGS divided by mean daily closing inventory value. Days on hand uses the inverse ratio multiplied by calendar days. Days of cover uses trailing fulfilled units, and age uses the receipt dates of remaining FIFO lots. See the [inventory methodology](docs/inventory-methodology.md) and [2025 findings](docs/inventory-findings.md).
+
 ## Data quality and privacy
 
 The pipeline validates required fields, dates, numeric types, payment/refund signs, discount signs, duplicate rows, and four line-level accounting identities. The current source has zero exact duplicate rows and zero accounting-identity failures.
 
-The browser export contains only KPI, monthly, category, store, and discount-band aggregates. It excludes Customer ID, Transaction ID, Item, SKU, Price Point Name, Device Name, time-of-day, and all line-level records. It allows at most three simultaneous filters, requires at least 10 transactions per published aggregate, and uses complementary suppression for a single small child cell.
+The sales export contains KPI, monthly, category, store, and discount-band aggregates. It excludes Customer ID, Transaction ID, Item, SKU, Price Point Name, Device Name, time-of-day, and all line-level records. It allows at most three simultaneous filters, requires at least 10 transactions per published aggregate, and uses complementary suppression for a single small child cell.
+
+The inventory release candidate includes only monthly synthetic demo series, catalog aliases, attribution, and aggregate quality results. The inventory refresh blocks export when critical checks fail. Same-day receipts are disclosed warnings that preserve POS fulfilment when scheduled supply is insufficient. See the [inventory data dictionary and quality checks](docs/inventory-data-dictionary.md).
 
 ## Dataset attribution and license
 
@@ -115,49 +125,58 @@ Requirements:
 - Node.js 22+
 - `data/raw/mendeley_pos/01_square_item_sales_detail_24mo.csv.gz`
 
+Download the named archive from the Mendeley dataset linked above when it is absent. The inventory release export checks its SHA-256 against `data/source_manifest.json`.
+
 ```powershell
+py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m retail_bi.pos_pipeline --local-export
+.\.venv\Scripts\python.exe -m retail_bi.inventory_pipeline
 
 cd frontend
 npm ci
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173/>. The raw, processed, report, and local export files are Git-ignored.
+Open <http://127.0.0.1:5173/> and choose **Inventory Intelligence**. The raw, processed, report, and local export files are Git-ignored. Run `python -m retail_bi.inventory_pipeline --seed 20261123 --slow-units 2` from the repository root with the virtual environment active to refresh inventory with the demo defaults. The same command accepts custom seeds and slow-moving thresholds.
 
 ## Tests and release checks
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe scripts/validation/audit_inventory.py
 cd frontend
 npm run lint
 npm test
 npm run build
+npm run preview
 ```
 
-To create the proposed licensed production asset for review:
+To regenerate the sales and inventory assets for release review, run from the repository root.
 
 ```powershell
 .\.venv\Scripts\python.exe -m retail_bi.pos_pipeline --publish-export
+.\.venv\Scripts\python.exe -m retail_bi.inventory_pipeline --publish-export
 ```
 
-The command verifies `data/source_manifest.json` before writing `frontend/public/data/dashboard.json`. No push or deployment should occur until the generated asset and production build have been reviewed.
+Both commands verify the licensed synthetic source and its SHA-256 before writing local review files. The production build serves `frontend/public/data/dashboard.json` and `frontend/public/inventory/monthly.json.gzip`. See the [release review](docs/inventory-release-review.md) for reproducible Chrome QA and the publication checklist.
 
 ## Cloudflare Pages
 
 | Setting | Value |
 | --- | --- |
-| Live URL | [retail-bi-analytics.pages.dev](https://retail-bi-analytics.pages.dev/) |
+| Current sales URL | [retail-bi-analytics.pages.dev](https://retail-bi-analytics.pages.dev/) |
 | Cloudflare project | `retail-bi-analytics` |
 | Framework preset | React (Vite) |
 | Production branch | `main` |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
 | Build output directory | `dist` |
-| Node.js | 22 or newer |
+| Node.js | 22.12 or newer |
 
-`frontend/wrangler.toml` matches the Pages root configuration. Cloudflare Pages automatically deploys reviewed commits from `main`; the live release has been checked against the committed aggregate asset and production bundle.
+GitHub records a successful Cloudflare Pages build for `main` in `retail-bi-analytics`. The existing Wrangler files name `retail-bi-dashboard`. Confirm the connected project and automatic deployment settings before pushing a release. The current public dashboard serves the sales release.
+
+The existing Cloudflare Pages static build needs only the two frontend review assets once approved. Python and DuckDB run locally to refresh them. The single-file limit on the Free plan is 25 MiB. [Cloudflare Pages limits](https://developers.cloudflare.com/pages/platform/limits/)
 
 ## Repository guide
 
@@ -165,6 +184,9 @@ The command verifies `data/source_manifest.json` before writing `frontend/public
 retail_bi/pos_*.py             Synthetic POS validation, modeling, and pipeline
 sql/pos_analysis.sql           POS business views
 tests/test_pos_*.py            POS validation and analytical tests
+retail_bi/inventory_*.py       Inventory simulation, validation and export
+sql/inventory_*.sql            Signed ledger reconciliation and inventory views
+tests/test_inventory.py        Inventory data and KPI tests
 retail_bi/{schema,validation,analytics,pipeline}.py
                                Preserved legacy implementation
 frontend/src/                  React dashboard and tests
@@ -181,6 +203,7 @@ data/source_manifest.json      Versioned source, checksum, attribution, and CC B
 - Customer identifiers are nominal and excluded from all browser exports.
 - The catalog and prices are static across the two-year period.
 - The dashboard is descriptive; it does not infer causality or represent a real operating business.
+- Actual inventory counts, supplier lead times, return dispositions, and lost demand are unavailable. Inventory results depend on modeled inputs, and the browser date selector uses calendar months. The [interview guide](docs/inventory-interview-guide.md) explains the tradeoffs and includes portfolio copy.
 
 ## Code license
 
