@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { AlertTriangle, BarChart3, ChevronDown, CircleDollarSign, Database, Filter, Info, PackageSearch, RefreshCw, ShoppingBag, TrendingUp } from 'lucide-react'
 import { PRODUCTION_DASHBOARD_URL, selectView, type Filters } from './lib/analytics'
@@ -8,6 +8,7 @@ const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD
 const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 const percent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 })
 const initialFilters: Filters = { location: 'All', paymentMethod: 'All', category: 'All', year: 'All' }
+const InventoryDashboard = lazy(() => import('./InventoryDashboard'))
 
 function SelectFilter({ label, value, values, disabled, onChange }: { label: string; value: string; values: Array<string | number>; disabled?: boolean; onChange: (value: string) => void }) {
   return <label className={`filter-control${disabled ? ' is-disabled' : ''}`}><span>{label}</span><div><select aria-label={label} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}><option>All</option>{values.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></div></label>
@@ -51,8 +52,47 @@ function Dashboard({ data }: { data: DashboardData }) {
 
 function App() {
   const [payload, setPayload] = useState<DataPayload | null>(null)
-  useEffect(() => { fetch(import.meta.env.DEV ? '/__local/dashboard.json' : PRODUCTION_DASHBOARD_URL).then((response) => response.ok ? response.json() : Promise.reject()).then(setPayload).catch(() => setPayload({ status: 'unavailable', reason: 'No validated export was found. Load the source dataset to activate the dashboard.' })) }, [])
-  return <div className="app-shell"><header className="topbar"><a className="brand" href="/"><span><PackageSearch size={21} /></span><div><strong>Northstar</strong><small>RETAIL INTELLIGENCE</small></div></a><nav><a className="active" href="#overview">Overview</a><a href="#methodology">Methodology</a></nav><div className="source-pill"><Database size={14}/>{payload?.status === 'ready' ? 'Synthetic source connected' : 'Awaiting data'}</div></header>{payload === null ? <main className="loading"><span></span>Loading workspace…</main> : payload.status === 'ready' ? <Dashboard data={payload} /> : <EmptyState reason={payload.reason} />}<footer><span>Northstar Retail BI · Validated with Pandas · Queried with DuckDB</span>{payload?.status === 'ready' && <span className="dataset-attribution">Data: <a href={payload.source.attributionUrl} target="_blank" rel="noreferrer">{payload.source.name}</a> by {payload.source.creator} · <a href={payload.source.licenseUrl} target="_blank" rel="noreferrer">{payload.source.licenseName}</a> · Adapted to aggregate dashboard views.</span>}</footer></div>
+  const [page, setPage] = useState(() => window.location.hash)
+  const inventory = page === '#inventory'
+  const methodology = page === '#methodology'
+  useEffect(() => {
+    if (inventory || payload) return
+    const request = new AbortController()
+    fetch(import.meta.env.DEV ? '/__local/dashboard.json' : PRODUCTION_DASHBOARD_URL, { signal: request.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: DataPayload) => { if (!request.signal.aborted) setPayload(data) })
+      .catch(() => {
+        if (!request.signal.aborted) setPayload({ status: 'unavailable', reason: 'No validated export was found. Load the source dataset to activate the dashboard.' })
+      })
+    return () => request.abort()
+  }, [inventory, payload])
+  useEffect(() => {
+    function syncHash() { setPage(window.location.hash) }
+    window.addEventListener('hashchange', syncHash)
+    return () => window.removeEventListener('hashchange', syncHash)
+  }, [])
+  useEffect(() => {
+    if (methodology) document.getElementById('methodology')?.scrollIntoView?.()
+    if (inventory || page === '#overview') window.scrollTo(0, 0)
+  }, [inventory, methodology, page])
+  return <div className="app-shell">
+    <header className="topbar">
+      <a className="brand" href="/"><span><PackageSearch size={21} /></span><div><strong>Northstar</strong><small>RETAIL INTELLIGENCE</small></div></a>
+      <nav className="workspace-nav" aria-label="Northstar sections">
+        <a aria-current={!inventory && !methodology ? 'page' : undefined} className={!inventory && !methodology ? 'active' : undefined} href="#overview">Overview</a>
+        <a aria-current={inventory ? 'page' : undefined} className={inventory ? 'active' : undefined} href="#inventory">Inventory Intelligence</a>
+        <a aria-current={methodology ? 'location' : undefined} className={methodology ? 'active' : undefined} href="#methodology">Methodology</a>
+      </nav>
+      <div className="source-pill"><Database size={14}/>{inventory ? 'Synthetic case study' : payload?.status === 'ready' ? 'Synthetic source connected' : 'Awaiting data'}</div>
+    </header>
+    {inventory ? <Suspense fallback={<main className="loading" role="status"><span></span>Loading inventory…</main>}><InventoryDashboard /></Suspense> : <>
+      {payload === null ? <main className="loading"><span></span>Loading workspace…</main> : payload.status === 'ready' ? <Dashboard data={payload} /> : <EmptyState reason={payload.reason} />}
+      <section className="panel sales-methods" id="methodology"><div className="panel-heading"><h2>Sales methodology</h2></div>
+        <p>Net sales include discounts and signed refunds. Gross profit subtracts signed item cost. Transaction counts use distinct transaction IDs and include refund transactions. Small cohorts are withheld.</p>
+      </section>
+    </>}
+    <footer><span>Northstar Retail BI · Validated with Pandas · Queried with DuckDB</span>{payload?.status === 'ready' && <span className="dataset-attribution">Data: <a href={payload.source.attributionUrl} target="_blank" rel="noreferrer">{payload.source.name}</a> by {payload.source.creator} · <a href={payload.source.licenseUrl} target="_blank" rel="noreferrer">{payload.source.licenseName}</a> · Adapted to aggregate dashboard views.</span>}</footer>
+  </div>
 }
 
 export default App

@@ -1,0 +1,38 @@
+# Inventory data dictionary and quality
+
+DuckDB persists the inventory model in the ignored `data/processed/inventory.duckdb`. Keys below describe the expected grain. The quality stage checks the staged model before the database and browser export can replace approved artifacts. Money fields ending in `_cents` use integer USD cents except time averages, which use decimal-valued ratios.
+
+## Model tables and views
+
+| Relation | Grain and key | Fields and types | Origin |
+| --- | --- | --- | --- |
+| `inventory_stores` | One per `location` | `location` VARCHAR, existing POS store label and key. | POS source. |
+| `inventory_products` | One per `sku` | `sku`, `item`, `price_point_name`, `category` VARCHAR. `cost_cents`, `price_cents`, `lead_days` integers. `active` BOOLEAN. | POS SKU metadata and cents conversion. Lead time and active assortment are modeled. |
+| `inventory_opening` | One per `(location, sku)` on launch date | `location`, `sku` VARCHAR. `date`, `received_on` timestamp/date. `quantity`, `value_cents` integers. | Seeded opening quantities and pre-period receipt dates. Derived value. |
+| `source_daily` | One per `(location, sku, date)` with POS activity | `location`, `sku` VARCHAR. `date` timestamp/date. `sold`, `returned`, `payment_lines`, `refund_lines` integers. Refund quantities are stored as positive units. | Aggregated positive payments and absolute negative refunds. |
+| `expected_daily` | One per `(location, sku, date)` including zero activity | `opening`, `receipts`, `same_day`, `sold`, `returned`, `adjustment`, `damaged`, `shrinkage`, `closing` integer units. | Simulator balance scaffold and independent expected values. |
+| `inventory_movements` | One per `movement_id` | `movement_id` BIGINT. `location`, `sku`, `event`, `provenance` VARCHAR. `date` timestamp/date. `quantity` signed integer. `cost_cents` integer. | Payments/refunds derived from POS. Opening, receipts and other flows are simulated. |
+| `inventory_orders` | One per `(location, sku, due_date)` | `order_date`, `due_date` timestamp/date. `quantity`, `minimum_order_qty` integers. Outstanding orders can have due dates beyond coverage. | Modeled scheduled replenishment. |
+| `inventory_purchase_receipts` | One per `receipt_id`, joined to its matching scheduled order | `receipt_id`, `quantity_received`, `cost_cents` integers. `location`, `sku` VARCHAR. `receipt_date`, nullable `order_date` timestamp/date. `same_day_override` BOOLEAN. | Ledger receipts. Same-day overrides have no purchase order. |
+| `inventory_lots` | One remaining lot per `(location, sku, date, received_on, origin)` at month-end | `date`, `received_on` timestamp/date. `origin` VARCHAR identifying the intake type. `quantity` positive integer. | FIFO allocation of opening lots and inbound movements. |
+| `inventory_daily` | One per `(location, sku, date)` | Unit fields as in `expected_daily` plus `transfer_net`. Also `cost_cents`, `lead_days`, `inventory_value_cents`, `cogs_cents`, `recent_units`, `recent_days`, `safety_stock`, `reorder_point` integers. `demand_per_day`, nullable `cover_days` DOUBLE. `below_reorder`, `stockout_risk` BOOLEAN. `health` VARCHAR. | SQL balances, trailing windows and metrics. |
+| `inventory_aging` | One per `(location, sku, date)` with remaining lots | Five `age_*` integer columns of remaining units by receipt age. | Aggregated FIFO lots. |
+| `inventory_monthly` | One per `(location, sku, month)` | `month` first of calendar month, plus actual `period_start`, `period_end`. `days`, `opening`, `receipts`, `same_day`, `sold`, `returned`, `other`, `stock_unit_days`, `cogs_cents`, `value_days_cents`, `closing`, `inventory_value_cents`, `recent_units`, `recent_days`, `reorder_point` and five aging counts are integers. `below_reorder`, `stockout_risk` BOOLEAN and `health` VARCHAR. | SQL sums over the month and measures as of its final included date. |
+| `inventory_exceptions` | One record per implicated row and check | `severity`, `code`, nullable `location`, `sku`, `reference` VARCHAR. `date` timestamp/date. `source_rows`, nullable `units` BIGINT. | Independent validation statements. A single row may trigger more than one check. |
+
+`location` and `sku` reference the store and product masters throughout. `inventory_daily_data` and `inventory_monthly_data` back the daily and monthly views for efficient repeated queries. The `movement_signs` reference defines accepted signed event types. `inventory_period(from_month, through_month)` returns period metrics by pair, while `inventory_store_month`, `inventory_category_month`, `inventory_sku_velocity_month`, and `inventory_watchlist` support drill-downs.
+
+## Validation results and exclusions
+
+- **Source validation** covers schema, event signs, financial identities, integer quantities, cost precision, dates, dimensions and duplicates. A failure blocks generation and writes `data/reports/inventory_quality.json`. The report includes source validation details and quarantines the attempted refresh.
+- **Movement and snapshot validation** checks unique movement and snapshot keys, signs and costs, references and date coverage, day-to-day chronology, balances, nonnegative stock and the daily formula. It also compares purchase receipts and lead times with their orders, checks opening stock valuation, and reconciles remaining FIFO units to closing stock.
+- **POS reconciliation** compares each key's sold and returned unit totals against the signed ledger separately. It reports both affected POS lines and unit differences. This check does not depend on the materialized snapshot.
+- **Severity** is critical for integrity failures. Any critical check prevents the attempted refresh from reaching KPI outputs. The report contains an exception breakdown and row-level details for failed ledger runs. Same-day receipts are warnings and remain included. Valid rows and warning rows remain eligible in a reconciled run. Intentionally invalid records exist only in automated test fixtures.
+
+The demo seed accepted all 970,838 POS lines and all 771,523 movements. It reconciled 1,469,310 daily snapshots and 1,182,565 sold units plus 9,449 returned units. It reported zero critical exceptions and 46,776 same-day receipt warnings, covering 84,195 units. The compact demo displays the counts for the approved run and aggregated exceptions by month. The local DuckDB exception table has the detailed warnings. [Findings](inventory-findings.md)
+
+The independent release audit reads the original archive directly, compares payments and refunds to the ledger at store–SKU–day grain, and rebuilds FIFO from ordered movement events. It checks all 48,240 monthly store–SKU aging allocations against the modeled receipt lots and exported bucket definitions. Run `python scripts/validation/audit_inventory.py` after regenerating the demo database. [Release review](inventory-release-review.md)
+
+## Browser files
+
+`data/local/inventory.json` is available to Vite development. The release candidate `frontend/public/inventory/monthly.json.gzip` has the same analytical measures with a demo catalog. Its schema has version, provenance, seed, policy, periods, stores, catalog, series and quality fields. See the named tuples in `frontend/src/lib/inventory.ts` for positional field order. A monthly entry groups opening and movement quantities, closing stock, unit-days, recent demand, reorder point, FIFO age counts, health and alert flags. A period supplies its covered dates and day counts. The release audit decompresses the asset, checks schema and aliases, and rechecks the monthly balances, continuity and FIFO totals. Raw rows and the query database stay local.

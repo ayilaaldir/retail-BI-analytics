@@ -8,7 +8,7 @@ Verification outside that restricted token confirmed:
 
 ```text
 Python 3.13.14
-D:\Projects\portofolio-dashboard\.venv\Scripts\python.exe
+.\.venv\Scripts\python.exe
 ```
 
 No environment was deleted or recreated. The project requirements were installed into the existing `.venv` only. Use the explicit interpreter in Windows terminals and VS Code tasks:
